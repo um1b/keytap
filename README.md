@@ -1,134 +1,81 @@
 # KeyTap
 
-A macOS menu bar app that maps keyboard keys to mouse actions. Perfect for games and applications that require mouse input but where you'd prefer keyboard controls.
+Play iOS games on your Mac with keyboard controls.
+
+KeyTap maps keyboard keys to screen taps and gestures, making touch-based iOS apps fully playable with WASD + custom key bindings.
+
+## Why KeyTap?
+
+iOS apps on Apple Silicon Macs don't support keyboard input — you're stuck clicking and dragging with a mouse. KeyTap fixes this by letting you:
+
+- Use **WASD** for virtual joysticks and drag gestures
+- Bind **any key** to tap specific buttons on screen
+- Create **per-app profiles** so each game has its own layout
 
 ## Features
 
-### Keyboard to Mouse Mapping
-
-- **WASD Movement** — Drag the mouse in any direction using W/A/S/D keys (including diagonals)
-- **Q/E Scroll** — Scroll up/down with Q and E keys (auto-repeats while held)
-- **Custom Button Bindings** — Bind any key to click at specific screen positions
-
-### Button Types
-
-| Type | Behavior |
-|------|----------|
-| **Click** | Single click on key press, cursor returns to original position |
-| **Hold** | Hold mouse button while key is held |
-| **Joystick** | Drag from button center in one of 8 directions |
-
-### Target App Selection
-
-- **Per-App Targeting** — Only activate in a specific application
-- **All Apps Mode** — Works globally across all applications
-- **Running Apps Menu** — Quick select from currently running apps
-- **Custom App Picker** — Browse to select any installed application
-
-### Visual Overlay
-
-- **Button Indicators** — See exactly where your keys will click
-- **Edit Mode** — Drag to position buttons, resize, and configure
-- **Per-App Profiles** — Button layouts are saved separately for each target app
-- **Auto-Tracking** — Overlay follows the target app's window
-
-### Configurable Settings
-
-- **Drag Distance** — Small (25px), Medium (50px), Large (100px), Very Large (150px)
-- **Smooth Animations** — 60fps eased mouse movements for natural feel
+- **WASD Movement** — Drag in any direction (including diagonals)
+- **Q/E Scroll** — Scroll up/down (auto-repeats while held)
+- **Custom Buttons** — Place tap targets anywhere, bind to any key
+- **Button Types** — Click, Hold, or Joystick (8-direction drag)
+- **Visual Overlay** — See your button layout over the app
+- **Per-App Profiles** — Layouts save automatically for each app
 
 ## Requirements
 
-- macOS 12.0 or later
-- **Accessibility Permission** — Required to intercept keyboard events and control the mouse
+- macOS 12.0+ on Apple Silicon
+- Accessibility permission (for keyboard capture)
 
 ## Installation
 
-1. Download the latest release
+1. Download from [Releases](https://github.com/um1b/keytap/releases/latest)
 2. Move `KeyTap.app` to `/Applications`
-3. Launch KeyTap
-4. Grant Accessibility permission when prompted:
-   - System Settings → Privacy & Security → Accessibility → Enable KeyTap
+3. Launch and grant Accessibility permission:
+   **System Settings → Privacy & Security → Accessibility → Enable KeyTap**
 
-## Usage
+> **Gatekeeper warning?** macOS may block the app since it's not notarized. To open:
+> 1. Try to open the app (you'll see a warning)
+> 2. Go to **System Settings → Privacy & Security**
+> 3. Scroll down and click **Open Anyway**
+>
+> Or run in Terminal: `xattr -cr /Applications/KeyTap.app`
 
-### Basic Setup
+### Build from Source
 
-1. Click the menu bar icon (🖱️ when disabled, 🎮 when enabled)
-2. Select **Target** → Choose your target application
-3. Click **Enable WASD Mode**
+```
+git clone https://github.com/um1b/keytap.git
+cd keytap
+open KeyTap.xcodeproj
+# Build with ⌘R
+```
+
+## Quick Start
+
+1. Click the menu bar icon
+2. **Target** → Select your iOS app
+3. **Enable WASD Mode**
 4. Use WASD to drag, Q/E to scroll
 
-### Configuring Buttons
+## Adding Buttons
 
-1. Select your target app
-2. Go to **Buttons** → **Edit Buttons...**
-3. In edit mode:
-   - **Click** a button to select it
-   - **Drag** to reposition
-   - **Right-click** for options (change type, bind key, delete)
-   - **Add buttons** from the context menu
-4. Click **Done Editing** or press Escape to save
+1. **Buttons** → **Edit Buttons...**
+2. Right-click to add buttons over UI elements
+3. Drag to position, right-click to bind keys
+4. Press Escape when done
 
-### Button Binding
-
-When binding a key to a button:
-1. Right-click the button → **Bind Key**
-2. Press the desired key
-3. The button will now trigger when that key is pressed
-
-### Joystick Buttons
-
-Joystick buttons simulate a drag gesture:
-1. Set button type to **Joystick**
-2. Choose a direction (↑↓←→↖↗↙↘)
-3. Set the drag distance
-4. When the bound key is pressed, it drags from the button center in that direction
-
-## Default Key Bindings
+## Default Keys
 
 | Key | Action |
 |-----|--------|
-| W | Drag up |
-| A | Drag left |
-| S | Drag down |
-| D | Drag right |
-| Q | Scroll up |
-| E | Scroll down |
+| W/A/S/D | Drag up/left/down/right |
+| Q/E | Scroll up/down |
 
-Diagonal movement is supported by pressing two WASD keys simultaneously (e.g., W+D for up-right).
+Hold two WASD keys for diagonal movement.
 
-## How It Works
+## Privacy
 
-KeyTap uses macOS CGEvent APIs to:
-1. Intercept keyboard events via an event tap
-2. Convert them to synthetic mouse events
-3. Post those events to the target application
-
-The app runs as a menu bar utility (`LSUIElement`) with no dock icon.
-
-## Building from Source
-
-1. Clone the repository
-2. Open `KeyTap.xcodeproj` in Xcode
-3. Build and run (⌘R)
-
-## Privacy & Security
-
-KeyTap requires Accessibility permission to function. This permission allows the app to:
-- Monitor keyboard input (only WASD, Q, E, and bound keys)
-- Generate mouse click and drag events
-- Track window positions for overlay alignment
-
-**KeyTap does not:**
-- Log or transmit any keystrokes
-- Access any data outside its operation
-- Connect to the internet
+KeyTap only captures configured keys and generates mouse events locally. No data is logged or transmitted.
 
 ## License
 
-MIT License - See [LICENSE](LICENSE) for details.
-
-## Contributing
-
-Contributions are welcome! Please open an issue or submit a pull request.
+MIT — See [LICENSE](LICENSE)
