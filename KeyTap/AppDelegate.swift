@@ -4,6 +4,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Constants
     private let overlayTrackingInterval: TimeInterval = 0.1
 
+    // MARK: - UserDefaults Keys
+    private enum DefaultsKey {
+        static let isEnabled = "KeyTap.isEnabled"
+        static let targetBundleId = "KeyTap.targetBundleId"
+        static let isOverlayEnabled = "KeyTap.isOverlayEnabled"
+        static let speed = "KeyTap.speed"
+    }
+
     // MARK: - Properties
     private var statusItem: NSStatusItem!
     private var keyTapController: KeyTapController!
@@ -29,6 +37,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         setupStatusItem()
         setupMenu()
+
+        // Restore saved state
+        restoreState()
 
         // Watch for target app termination
         NSWorkspace.shared.notificationCenter.addObserver(
@@ -56,6 +67,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        // Save state before quitting
+        saveState()
+
         // Remove observer to prevent memory leaks
         NSWorkspace.shared.notificationCenter.removeObserver(self)
 
@@ -69,9 +83,64 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     deinit {
-        // Issue 45: Observer removal already done in applicationWillTerminate
+        // Observer removal already done in applicationWillTerminate
         // Keep only stopOverlayTracking as safety cleanup
         stopOverlayTracking()
+    }
+
+    // MARK: - State Persistence
+    private func saveState() {
+        let defaults = UserDefaults.standard
+        defaults.set(enableMenuItem.state == .on, forKey: DefaultsKey.isEnabled)
+        defaults.set(keyTapController.targetBundleId, forKey: DefaultsKey.targetBundleId)
+        defaults.set(isOverlayEnabled, forKey: DefaultsKey.isOverlayEnabled)
+        defaults.set(keyTapController.speed, forKey: DefaultsKey.speed)
+    }
+
+    private func restoreState() {
+        let defaults = UserDefaults.standard
+
+        // Restore speed (with default)
+        let speed = defaults.double(forKey: DefaultsKey.speed)
+        if speed > 0 {
+            keyTapController.speed = speed
+            updateSpeedMenuState(speed: speed)
+        }
+
+        // Restore target app
+        if let bundleId = defaults.string(forKey: DefaultsKey.targetBundleId) {
+            keyTapController.targetBundleId = bundleId
+            overlayWindow.targetBundleId = bundleId
+            updateTargetAppDisplay(bundleId: bundleId)
+            updateTargetMenuStates(selectedBundleId: bundleId)
+        }
+
+        // Restore overlay visibility
+        if defaults.bool(forKey: DefaultsKey.isOverlayEnabled) {
+            isOverlayEnabled = true
+            showOverlayMenuItem.title = "Hide Buttons"
+            startOverlayTracking()
+            updateOverlayVisibility()
+        }
+
+        // Restore enabled state (do this last so bindings are ready)
+        if defaults.bool(forKey: DefaultsKey.isEnabled) {
+            if keyTapController.start() {
+                enableMenuItem.state = .on
+                enableMenuItem.title = "Disable WASD Mode"
+                updateStatusIcon(enabled: true)
+            }
+        }
+    }
+
+    private func updateSpeedMenuState(speed: Double) {
+        guard let overlayMenu = overlayMenuItem.submenu,
+              let speedItem = overlayMenu.items.first(where: { $0.title == "WASD Drag Distance" }),
+              let speedMenu = speedItem.submenu else { return }
+
+        for item in speedMenu.items {
+            item.state = (Double(item.tag) == speed) ? .on : .off
+        }
     }
 
     // MARK: - Overlay Tracking (continuous, outside edit mode)
@@ -260,7 +329,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func handleEditModeExit() {
         overlayWindow.stopTracking()
-        // Issue 35: Ensure selection is cleared on edit mode exit
         overlayWindow.deselectAllButtons()
         editModeMenuItem.title = "Edit Buttons..."
         keyTapController.updateButtonBindings()
@@ -387,27 +455,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
-        // Check if this is the target app and set cached state IMMEDIATELY
-        // This must happen BEFORE any async operations to fix first keypress issue
-        if let targetId = keyTapController.targetBundleId {
-            if bundleId.lowercased() == targetId.lowercased() {
-                keyTapController.setTargetAppActive(true)
-            } else {
-                keyTapController.setTargetAppActive(false)
-            }
-        }
-
-        // Re-enable event tap when any app becomes active
-        keyTapController.reEnableEventTap()
-
-        // If target app just became active, show overlay and update bindings
+        // Check if this is the target app
         if let targetId = keyTapController.targetBundleId,
            bundleId.lowercased() == targetId.lowercased() {
-            // Target app activated - immediately update overlay
+            // Target app activated - update overlay
             if isOverlayEnabled && !overlayWindow.isEditMode {
                 overlayWindow.updatePositionToTargetApp()
                 overlayWindow.orderFront(nil)
             }
+            keyTapController.setTargetFrontmost(true)
             keyTapController.updateButtonBindings()
         }
     }
@@ -418,16 +474,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
-        // If target app just lost focus, reset controller but DON'T clear cached state
-        // (clearing cached state too early causes first keypress to fail on switch back)
+        // If target app just lost focus, reset controller state
         if let targetId = keyTapController.targetBundleId,
            bundleId.lowercased() == targetId.lowercased() {
             // Target app deactivated - immediately hide overlay
             if !overlayWindow.isEditMode {
                 overlayWindow.orderOut(nil)
             }
-            // Reset any active drags/clicks to prevent stuck state
-            keyTapController.resetStateOnFocusLoss()
+            keyTapController.setTargetFrontmost(false)
+            keyTapController.resetAllState()
         }
     }
 
