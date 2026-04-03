@@ -119,33 +119,31 @@ class DragHandler {
         dragProgress = 0.0
 
         isDragging = true
-        
-        // Use a small delay to prevent event conflicts, similar to ButtonActionHandler
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self, self.isDragging else { return }
-            
-            if let mouseDown = CGEvent(mouseEventSource: nil, mouseType: .leftMouseDown, mouseCursorPosition: dragAnchor, mouseButton: .left) {
-                self.markAsSynthetic?(mouseDown)
-                mouseDown.post(tap: .cghidEventTap)
-            }
 
-            self.updateTargetPosition()
-
-            let interval = 1.0 / Constants.animationFPS
-            let progressPerFrame = interval / self.dragDuration
-
-            self.dragTimer?.invalidate()
-            self.dragTimer = nil
-            let timer = Timer(timeInterval: interval, repeats: true) { [weak self] timer in
-                guard let self = self else {
-                    timer.invalidate()
-                    return
-                }
-                self.animateDrag(progressPerFrame: progressPerFrame)
-            }
-            RunLoop.main.add(timer, forMode: .common)
-            self.dragTimer = timer
+        // Post leftMouseDown synchronously — event tap runs on main thread,
+        // no need to defer. Matches ButtonActionHandler's synchronous first-event pattern.
+        if let mouseDown = CGEvent(mouseEventSource: nil, mouseType: .leftMouseDown,
+                                   mouseCursorPosition: dragAnchor, mouseButton: .left) {
+            markAsSynthetic?(mouseDown)
+            mouseDown.post(tap: .cghidEventTap)
         }
+
+        updateTargetPosition()
+
+        let interval = 1.0 / Constants.animationFPS
+        let progressPerFrame = interval / dragDuration
+
+        dragTimer?.invalidate()
+        dragTimer = nil
+        let timer = Timer(timeInterval: interval, repeats: true) { [weak self] timer in
+            guard let self = self else {
+                timer.invalidate()
+                return
+            }
+            self.animateDrag(progressPerFrame: progressPerFrame)
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        dragTimer = timer
     }
 
     private func updateTargetPosition() {

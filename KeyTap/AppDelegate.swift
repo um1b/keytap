@@ -282,16 +282,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 sender.title = "Disable WASD Mode"
                 updateStatusIcon(enabled: true)
             } else {
-                // Show error if failed to start
-                let alert = NSAlert()
-                alert.messageText = "Cannot Enable WASD Mode"
-                alert.informativeText = "Accessibility permission is required. Go to System Settings > Privacy & Security > Accessibility and enable KeyTap."
-                alert.alertStyle = .warning
-                alert.addButton(withTitle: "Open Settings")
-                alert.addButton(withTitle: "Cancel")
-                if alert.runModal() == .alertFirstButtonReturn {
-                    NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
-                }
+                NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
             }
         } else {
             keyTapController.stop()

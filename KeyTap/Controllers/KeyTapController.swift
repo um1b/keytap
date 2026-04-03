@@ -16,6 +16,11 @@ class KeyTapController {
     /// Target app PID — populated synchronously from NSWorkspace (no run loop lag in event tap)
     private var targetAppPID: pid_t = 0
 
+    /// Set when a leftMouseDown targets the target app — allows the next key through before
+    /// keyboard focus has fully shifted (WindowServer annotates mouse events synchronously,
+    /// but keyboard focus update can lag by one event cycle)
+    private var pendingClickActivation = false
+
     func refreshTargetApp() {
         guard let targetId = targetBundleId else { targetAppPID = 0; return }
         targetAppPID = NSWorkspace.shared.runningApplications
@@ -188,6 +193,7 @@ class KeyTapController {
     }
 
     func resetAllState() {
+        pendingClickActivation = false
         dragHandler.reset()
         scrollHandler.reset()
         buttonActionHandler.reset(findBinding: findBinding)
@@ -206,8 +212,21 @@ class KeyTapController {
             return Unmanaged.passUnretained(event)
         }
 
-        // Pass through mouse events immediately
-        if type == .leftMouseDown || type == .leftMouseUp || type == .leftMouseDragged || type == .mouseMoved {
+        // For leftMouseDown: check if click is targeting the target app.
+        // Mouse events have field 40 populated synchronously (position-based), so we can
+        // use it to predict the upcoming keyboard focus shift before it completes.
+        if type == .leftMouseDown {
+            if let _ = targetBundleId {
+                let clickTargetPID = pid_t(event.getIntegerValueField(CGEventField(rawValue: 40)!))
+                if clickTargetPID == targetAppPID {
+                    pendingClickActivation = true
+                }
+            }
+            return Unmanaged.passUnretained(event)
+        }
+
+        // Pass through other mouse events immediately
+        if type == .leftMouseUp || type == .leftMouseDragged || type == .mouseMoved {
             return Unmanaged.passUnretained(event)
         }
 
@@ -215,8 +234,17 @@ class KeyTapController {
         // synchronously at .cgAnnotatedSessionEventTap — no run loop lag, no race condition.
         if let _ = targetBundleId {
             let eventTargetPID = pid_t(event.getIntegerValueField(CGEventField(rawValue: 40)!))
-            guard eventTargetPID == targetAppPID else {
-                return Unmanaged.passUnretained(event)
+            if pendingClickActivation {
+                pendingClickActivation = false
+                // Allow if field 40 is unannotated (0) or already pointing to target.
+                // If it points elsewhere, focus genuinely went to a different app.
+                guard eventTargetPID == 0 || eventTargetPID == targetAppPID else {
+                    return Unmanaged.passUnretained(event)
+                }
+            } else {
+                guard eventTargetPID == targetAppPID else {
+                    return Unmanaged.passUnretained(event)
+                }
             }
         }
 
