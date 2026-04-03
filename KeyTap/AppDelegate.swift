@@ -463,7 +463,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 overlayWindow.updatePositionToTargetApp()
                 overlayWindow.orderFront(nil)
             }
-            keyTapController.setTargetFrontmost(true)
+            keyTapController.refreshTargetApp()  // Refresh PID in case app was relaunched
             keyTapController.updateButtonBindings()
         }
     }
@@ -481,7 +481,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             if !overlayWindow.isEditMode {
                 overlayWindow.orderOut(nil)
             }
-            keyTapController.setTargetFrontmost(false)
             keyTapController.resetAllState()
         }
     }

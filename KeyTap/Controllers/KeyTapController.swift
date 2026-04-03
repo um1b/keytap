@@ -6,26 +6,21 @@ class KeyTapController {
         didSet { dragHandler.speed = speed }
     }
     var targetBundleId: String? {
-        didSet {
-            // Initial sync when target changes
-            if let targetId = targetBundleId {
-                isTargetFrontmost = NSWorkspace.shared.frontmostApplication?.bundleIdentifier?.lowercased() == targetId.lowercased()
-            } else {
-                isTargetFrontmost = false
-            }
-        }
+        didSet { refreshTargetApp() }
     }
     var dragDuration: Double = 0.15 {
         didSet { dragHandler.dragDuration = dragDuration }
     }
     weak var overlayWindow: OverlayWindow?
 
-    /// Check if target app is currently frontmost (cached value)
-    private var isTargetFrontmost: Bool = false
+    /// Target app PID — populated synchronously from NSWorkspace (no run loop lag in event tap)
+    private var targetAppPID: pid_t = 0
 
-    var isTargetAppActive: Bool {
-        guard let _ = targetBundleId else { return true }  // "All Apps" mode
-        return isTargetFrontmost
+    func refreshTargetApp() {
+        guard let targetId = targetBundleId else { targetAppPID = 0; return }
+        targetAppPID = NSWorkspace.shared.runningApplications
+            .first { $0.bundleIdentifier?.lowercased() == targetId.lowercased() }?
+            .processIdentifier ?? 0
     }
 
     // MARK: - Private Properties
@@ -110,10 +105,6 @@ class KeyTapController {
     }
 
     // MARK: - Public Methods
-    func setTargetFrontmost(_ active: Bool) {
-        isTargetFrontmost = active
-    }
-
     func start() -> Bool {
         updateButtonBindings()
 
@@ -124,7 +115,7 @@ class KeyTapController {
         }
 
         guard let tap = CGEvent.tapCreate(
-            tap: .cgSessionEventTap,
+            tap: .cgAnnotatedSessionEventTap,
             place: .headInsertEventTap,
             options: .defaultTap,
             eventsOfInterest: eventMask,
@@ -215,23 +206,18 @@ class KeyTapController {
             return Unmanaged.passUnretained(event)
         }
 
-        // Speculatively activate if event arrives before appDidActivate notification fires.
-        // At .cgSessionEventTap level, events arrive after WindowServer completes activation,
-        // so frontmostApplication is already accurate here.
-        if (type == .keyDown || type == .leftMouseDown) && !isTargetFrontmost, let targetId = targetBundleId {
-            if NSWorkspace.shared.frontmostApplication?.bundleIdentifier?.lowercased() == targetId.lowercased() {
-                isTargetFrontmost = true
-            }
-        }
-
         // Pass through mouse events immediately
         if type == .leftMouseDown || type == .leftMouseUp || type == .leftMouseDragged || type == .mouseMoved {
             return Unmanaged.passUnretained(event)
         }
 
-        // Pass through ALL keyboard events when target app is not active
-        if !isTargetAppActive {
-            return Unmanaged.passUnretained(event)
+        // In-event PID check: WindowServer annotates each event with the target process PID
+        // synchronously at .cgAnnotatedSessionEventTap — no run loop lag, no race condition.
+        if let _ = targetBundleId {
+            let eventTargetPID = pid_t(event.getIntegerValueField(CGEventField(rawValue: 40)!))
+            guard eventTargetPID == targetAppPID else {
+                return Unmanaged.passUnretained(event)
+            }
         }
 
         let keyCode = UInt16(event.getIntegerValueField(.keyboardEventKeycode))
@@ -252,18 +238,12 @@ class KeyTapController {
 
         // Handle WASD keys for drag movement
         if wasdBindings[keyCode] != nil {
-            guard isTargetAppActive else {
-                return Unmanaged.passUnretained(event)
-            }
             dragHandler.handleWASDBinding(keyCode: keyCode, isKeyDown: isKeyDown, isKeyUp: isKeyUp)
             return nil
         }
 
         // Handle Q/E scroll keys
         if keyCode == keyQ {
-            guard isTargetAppActive else {
-                return Unmanaged.passUnretained(event)
-            }
             if isKeyDown {
                 scrollHandler.handleKeyDown(direction: -1)
             }
@@ -273,9 +253,6 @@ class KeyTapController {
             return nil
         }
         if keyCode == keyE {
-            guard isTargetAppActive else {
-                return Unmanaged.passUnretained(event)
-            }
             if isKeyDown {
                 scrollHandler.handleKeyDown(direction: 1)
             }

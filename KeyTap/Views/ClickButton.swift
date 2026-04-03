@@ -16,6 +16,7 @@ class ClickButton: NSView {
         didSet { needsDisplay = true }
     }
     var joystickDistance: CGFloat = 50.0
+    var clicksPerSecond: Int = 100
 
     weak var overlayWindow: OverlayWindow?
 
@@ -78,6 +79,8 @@ class ClickButton: NSView {
                 baseColor = .systemGreen
             case .joystick:
                 baseColor = .systemBlue
+            case .rapidClick:
+                baseColor = .systemPurple
             }
 
             if isEditing {
@@ -275,7 +278,7 @@ class ClickButton: NSView {
             overlayWindow?.markNeedsSave()
         }
         isDragging = false
-        dragOffset = .zero  // Issue 40: Reset dragOffset on mouseUp
+        dragOffset = .zero
     }
 
     override func rightMouseDown(with event: NSEvent) {
@@ -331,6 +334,21 @@ class ClickButton: NSView {
             menu.addItem(distItem)
         }
 
+        // Clicks/sec submenu (only for rapidClick)
+        if buttonType == .rapidClick {
+            let cpsMenu = NSMenu()
+            for cps in [10, 25, 50, 100, 200, 500] {
+                let item = NSMenuItem(title: "\(cps) cps", action: #selector(setClicksPerSecond(_:)), keyEquivalent: "")
+                item.target = self
+                item.tag = cps
+                item.state = (clicksPerSecond == cps) ? .on : .off
+                cpsMenu.addItem(item)
+            }
+            let cpsItem = NSMenuItem(title: "Clicks/sec", action: nil, keyEquivalent: "")
+            cpsItem.submenu = cpsMenu
+            menu.addItem(cpsItem)
+        }
+
         menu.addItem(NSMenuItem.separator())
 
         let deleteItem = NSMenuItem(title: "Delete", action: #selector(deleteAction), keyEquivalent: "")
@@ -354,7 +372,6 @@ class ClickButton: NSView {
             return
         }
 
-        // Issue 36: Cancel any pending key binding when type changes
         cancelKeyBinding()
 
         buttonType = type
@@ -369,6 +386,11 @@ class ClickButton: NSView {
 
     @objc private func setDistance(_ sender: NSMenuItem) {
         joystickDistance = CGFloat(sender.tag)
+        overlayWindow?.markNeedsSave()
+    }
+
+    @objc private func setClicksPerSecond(_ sender: NSMenuItem) {
+        clicksPerSecond = sender.tag
         overlayWindow?.markNeedsSave()
     }
 
@@ -417,7 +439,6 @@ class ClickButton: NSView {
     }
 
     static func keyCodeToString(_ keyCode: UInt16) -> String {
-        // Issue 43: Extended key code mapping including modifiers and keypad
         let keyMap: [UInt16: String] = [
             // Letters
             0: "A", 1: "S", 2: "D", 3: "F", 4: "H", 5: "G", 6: "Z", 7: "X",

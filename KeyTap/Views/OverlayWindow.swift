@@ -204,7 +204,7 @@ class OverlayWindow: NSWindow {
     // MARK: - Auto-Save
     private func startAutoSave() {
         stopAutoSave()
-        // Auto-save every 2 seconds if there are unsaved changes (Issue 38: reduced from 5s)
+        // Auto-save every 2 seconds if there are unsaved changes
         autoSaveTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] timer in
             guard let self = self else {
                 timer.invalidate()
@@ -426,7 +426,8 @@ class OverlayWindow: NSWindow {
                 relativeY: centerY / windowSize.height,
                 buttonType: button.buttonType,
                 joystickDirection: button.joystickDirection,
-                joystickDistance: button.joystickDistance
+                joystickDistance: button.joystickDistance,
+                clicksPerSecond: button.clicksPerSecond
             )
         }
 
@@ -437,7 +438,6 @@ class OverlayWindow: NSWindow {
         profiles.append(profile)
 
         do {
-            // Issue 39: Check file permissions before writing
             let fileManager = FileManager.default
             let directory = configFileURL.deletingLastPathComponent()
 
@@ -474,7 +474,6 @@ class OverlayWindow: NSWindow {
 
         updatePositionToTargetApp()
         let windowSize = frame.size
-        // Issue 21: Require minimum window size to load buttons properly
         guard windowSize.width > 50 && windowSize.height > 50 else { return }
 
         for config in profile.buttons {
@@ -497,6 +496,7 @@ class OverlayWindow: NSWindow {
             button.buttonType = config.buttonType
             button.joystickDirection = config.joystickDirection ?? .up
             button.joystickDistance = config.joystickDistance
+            button.clicksPerSecond = config.clicksPerSecond ?? 100
         }
     }
 
@@ -527,7 +527,8 @@ class OverlayWindow: NSWindow {
                         relativeY: max(0, min(1, config.relativeY)),
                         buttonType: config.buttonType,
                         joystickDirection: config.joystickDirection,
-                        joystickDistance: validatedDistance
+                        joystickDistance: validatedDistance,
+                        clicksPerSecond: config.clicksPerSecond ?? 100
                     )
                 }
                 return ProfileConfig(bundleId: profile.bundleId, buttons: validatedButtons)
@@ -539,7 +540,7 @@ class OverlayWindow: NSWindow {
     }
 
     // MARK: - Button Bindings Export
-    func getButtonBindings() -> [ButtonBindingInfo] {
+    func getButtonBindings() -> [ButtonBinding] {
         let windowFrame = frame
         let screen = NSScreen.screens.first { NSIntersectsRect($0.frame, windowFrame) } ?? NSScreen.main
         let screenHeight = screen?.frame.height ?? 0
@@ -549,13 +550,14 @@ class OverlayWindow: NSWindow {
             let screenX = windowFrame.origin.x + centerInWindow.x
             let screenY = screenHeight - (windowFrame.origin.y + centerInWindow.y)
 
-            return ButtonBindingInfo(
+            return ButtonBinding(
                 keyCode: button.keyCode,
                 keyLabel: button.keyLabel,
                 position: CGPoint(x: screenX, y: screenY),
                 buttonType: button.buttonType,
                 joystickDirection: button.joystickDirection,
-                joystickDistance: button.joystickDistance
+                joystickDistance: button.joystickDistance,
+                clicksPerSecond: button.clicksPerSecond
             )
         }
     }

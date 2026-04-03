@@ -10,9 +10,11 @@ struct ButtonConfig: Codable {
     var buttonType: KeyButtonType
     var joystickDirection: JoystickDirection?
     var joystickDistance: CGFloat
+    var clicksPerSecond: Int?
 
     init(keyCode: UInt16 = 0, keyLabel: String = "?", relativeX: CGFloat = 0.5, relativeY: CGFloat = 0.5,
-         buttonType: KeyButtonType = .click, joystickDirection: JoystickDirection? = nil, joystickDistance: CGFloat = 50) {
+         buttonType: KeyButtonType = .click, joystickDirection: JoystickDirection? = nil, joystickDistance: CGFloat = 50,
+         clicksPerSecond: Int = 100) {
         self.keyCode = keyCode
         self.keyLabel = keyLabel
         self.relativeX = relativeX
@@ -20,12 +22,12 @@ struct ButtonConfig: Codable {
         self.buttonType = buttonType
         self.joystickDirection = joystickDirection
         self.joystickDistance = joystickDistance
+        self.clicksPerSecond = clicksPerSecond
     }
 }
 
 // MARK: - Profile Configuration
 struct ProfileConfig: Codable {
-    // Issue 27: Schema versioning for future migration support
     static let currentVersion: Int = 1
 
     var version: Int

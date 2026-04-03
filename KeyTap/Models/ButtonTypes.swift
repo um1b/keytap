@@ -6,12 +6,14 @@ enum KeyButtonType: String, Codable, CaseIterable {
     case click = "click"           // Single click on press
     case hold = "hold"             // Hold while key held
     case joystick = "joystick"     // Drag from center in direction
+    case rapidClick = "rapidClick" // Repeated clicks while key held
 
     var displayName: String {
         switch self {
         case .click: return "Click"
         case .hold: return "Hold"
         case .joystick: return "Joystick"
+        case .rapidClick: return "Rapid Click"
         }
     }
 
@@ -20,6 +22,7 @@ enum KeyButtonType: String, Codable, CaseIterable {
         case .click: return "●"
         case .hold: return "◆"
         case .joystick: return "◎"
+        case .rapidClick: return "⚡"
         }
     }
 }
